@@ -1,3 +1,11 @@
+fastapi
+uvicorn
+biopython
+pydantic
+sqlmodel
+python-dotenv
+requests
+streamlit
 altair==6.2.2
 annotated-doc==0.0.5
 annotated-types==0.8.0
