@@ -3,7 +3,7 @@
 An AI-powered bioinformatics research assistant. Paste a GEO accession number — the system fetches real dataset metadata, understands the biology, proposes feasible research directions, and generates a full step-by-step computational pipeline with scientific rationale for every step.
 
 **Live Demo:** https://huggingface.co/spaces/Kishore7684/geo-research-copilot  
-**Backend API:** https://your-render-url.onrender.com/docs
+**Backend API:** https://geo-research-copilot.onrender.com/docs
 
 ---
 
