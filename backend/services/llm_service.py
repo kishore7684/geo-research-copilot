@@ -1,10 +1,11 @@
+# backend/services/llm_service.py
+
 import requests
 from dotenv import load_dotenv
 from pydantic import BaseModel
 from typing import Optional
 import os
 import json
-import re
 
 load_dotenv(dotenv_path="backend/.env")
 
@@ -45,60 +46,53 @@ def call_llm(messages: list, temperature: float = 0.2) -> str:
 
 
 def fix_truncated_json(raw: str) -> str:
-    """Fix JSON truncated by token limit — close open strings and braces."""
     raw = raw.strip()
-
-    # count open vs closed braces
     open_braces = raw.count("{") - raw.count("}")
     open_brackets = raw.count("[") - raw.count("]")
-
-    # if last char is not a quote or brace, we're mid-string — close it
     if raw and raw[-1] not in ('"', '}', ']', ','):
         raw += '"'
-
-    # close any open brackets
     raw += "]" * open_brackets
-
-    # close any open braces
     raw += "}" * open_braces
-
     return raw
 
 
 def summarize_dataset(metadata: dict) -> dict:
 
-    system_prompt = """You are a bioinformatics expert analyzing GEO datasets.
-Analyze the metadata and return ONLY valid JSON. No explanation. No markdown. No backticks.
+    system_prompt = """You are a bioinformatics expert. Analyze GEO dataset metadata and return a JSON object.
+Return ONLY valid JSON. No explanation. No markdown. No backticks.
 
-Return exactly this JSON structure with real values:
+EXAMPLE INPUT:
+Title: RNA-seq profiling of BRCA1-mutant breast tumors vs normal tissue
+Summary: We performed RNA-seq on 20 BRCA1-mutant breast tumors and 20 matched normal tissue samples to identify transcriptional changes driven by BRCA1 loss.
+Technology: RNA-seq
+Organism: Homo sapiens
+Samples: 40
+
+EXAMPLE OUTPUT:
 {
-  "research_question": "the actual biological question this study investigates",
-  "biological_context": "the disease or biological process being studied",
-  "experimental_design": "actual groups conditions and sample sizes",
-  "data_type": "actual technology used",
-  "organism": "actual organism name",
-  "key_comparison": "actual comparison being made",
-  "potential_value": "why this dataset matters scientifically"
-}"""
+  "research_question": "What transcriptional changes are driven by BRCA1 loss in breast tumors?",
+  "biological_context": "BRCA1-mutant breast cancer",
+  "experimental_design": "20 BRCA1-mutant breast tumors vs 20 matched normal tissue samples, RNA-seq",
+  "data_type": "RNA-seq",
+  "organism": "Homo sapiens",
+  "key_comparison": "BRCA1-mutant tumor vs normal tissue",
+  "potential_value": "Identifies transcriptional programs disrupted by BRCA1 loss, potential therapeutic targets"
+}
 
-    user_message = f"""Analyze this GEO dataset:
+Now analyze the dataset below and return a JSON object in the same format."""
 
-Accession: {metadata.get('accession')}
-Title: {metadata.get('title')}
+    user_message = f"""Title: {metadata.get('title')}
 Summary: {metadata.get('summary')}
-Organism: {metadata.get('organism')}
 Technology: {metadata.get('technology')}
-Sample count: {metadata.get('sample_count')}
-Platform: {metadata.get('platform')}
-
-Return only the JSON object."""
+Organism: {metadata.get('organism')}
+Samples: {metadata.get('sample_count')}
+Sample conditions: {', '.join(metadata.get('sample_conditions', [])[:10])}"""
 
     raw = call_llm([
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_message}
     ])
 
-    # strip markdown fences
     if "```" in raw:
         parts = raw.split("```")
         raw = parts[1] if len(parts) > 1 else raw
@@ -106,7 +100,6 @@ Return only the JSON object."""
             raw = raw[4:]
     raw = raw.strip()
 
-    # attempt 1: parse as-is
     try:
         parsed = json.loads(raw)
         validated = StudySummary(**parsed)
@@ -114,7 +107,6 @@ Return only the JSON object."""
     except json.JSONDecodeError:
         pass
 
-    # attempt 2: fix truncation and retry
     try:
         fixed = fix_truncated_json(raw)
         parsed = json.loads(fixed)
