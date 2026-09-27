@@ -1,4 +1,4 @@
-# 🧬 GEO Research Copilot
+# GEO Research Copilot
 
 An AI-powered bioinformatics research assistant. Paste a GEO accession number — the system fetches real dataset metadata, understands the biology, proposes feasible research directions, and generates a full step-by-step computational pipeline with scientific rationale for every step.
 
